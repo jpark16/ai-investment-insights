@@ -3,20 +3,24 @@ package com.example.demo.service;
 import com.example.demo.model.Asset;
 import com.example.demo.repository.AssetRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.GetMapping;
 
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 public class PortfolioService {
 
     private final AssetRepository repo;
+    private final OpenAIService openAIService;
+    private final MarketDataService marketDataService;
 
-    public PortfolioService(AssetRepository repo) {
+    public PortfolioService(AssetRepository repo,
+            OpenAIService openAIService,
+            MarketDataService marketDataService) {
         this.repo = repo;
+        this.openAIService = openAIService;
+        this.marketDataService = marketDataService;
     }
 
     public List<Asset> getAllAssets() {
@@ -72,4 +76,58 @@ public class PortfolioService {
         }
     }
 
+    public String generateInsights() {
+        List<Asset> assets = repo.findAll();
+
+        if (assets.isEmpty()) {
+            return "Portfolio is empty.";
+        }
+
+        StringBuilder prompt = new StringBuilder("Analyze this investment portfolio:\n");
+
+        for (Asset a : assets) {
+            prompt.append(a.getSymbol())
+                    .append(" - value: ")
+                    .append(a.getQuantity() * a.getPrice())
+                    .append(", sector: ")
+                    .append(a.getSector())
+                    .append("\n");
+        }
+
+        prompt.append("Provide a short professional investment risk and diversification insight.");
+
+        return openAIService.getAIInsights(prompt.toString());
+    }
+
+    public Map<String, Double> getSectorAllocation() {
+        List<Asset> assets = repo.findAll();
+
+        double total = assets.stream()
+                .mapToDouble(a -> a.getQuantity() * a.getPrice())
+                .sum();
+
+        return assets.stream()
+                .collect(Collectors.groupingBy(
+                        Asset::getSector,
+                        Collectors.summingDouble(a -> a.getQuantity() * a.getPrice())))
+                .entrySet()
+                .stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        e -> (e.getValue() / total) * 100));
+    }
+
+    public void refreshPrices() {
+        Map<String, Double> prices = marketDataService.fetchPrices();
+
+        List<Asset> assets = repo.findAll();
+
+        for (Asset asset : assets) {
+            if (prices.containsKey(asset.getSymbol())) {
+                asset.setPrice(prices.get(asset.getSymbol()));
+            }
+        }
+
+        repo.saveAll(assets);
+    }
 }

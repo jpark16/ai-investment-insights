@@ -42,4 +42,19 @@ public class PortfolioController {
         return service.getConcentrationRisk();
     }
 
+    @GetMapping("/insights")
+    public String insights() {
+        return service.generateInsights();
+    }
+
+    @GetMapping("/sector-allocation")
+    public Map<String, Double> sectorAllocation() {
+        return service.getSectorAllocation();
+    }
+
+    @PostMapping("/refresh")
+    public String refreshPrices() {
+        service.refreshPrices();
+        return "Prices updated from market data.";
+    }
 }

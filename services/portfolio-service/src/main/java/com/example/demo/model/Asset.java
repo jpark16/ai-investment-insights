@@ -14,4 +14,6 @@ public class Asset {
     private String symbol;
     private int quantity;
     private double price;
+
+    private String sector;
 }
